@@ -1,0 +1,480 @@
+<!-- TEMPLATE_NAME: Target Licensee Report -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{{'Target Licensee Report'}}</title>
+
+    {# --- TOC FILTER SETTINGS (override at render if needed) --- #}
+    {% set toc_include_h2 = toc_include_h2|default(true) %}
+    {% set toc_include_h3_strong = toc_include_h3_strong|default(true) %}
+    {% set toc_include_h3_non_strong = toc_include_h3_non_strong|default(true) %}
+
+    <style>
+        /* Professional Font Stack - Using system fonts for reliability */
+        :root {
+            --ei-blue: {{ brand_blue | default('#0d264f') }};
+            --ei-blue-light: #2d4a7f;
+            --ei-accent: #3b82f6;
+            --ei-dark: #111827;
+            --ei-gray: #6b7280;
+            --text: #1f2937;
+            --text-light: #4b5563;
+            --muted: #9ca3af;
+            --border: #e5e7eb;
+            --bg-subtle: #f9fafb;
+            --bg-accent: #eff6ff;
+
+            /* Professional font stack */
+            --font-primary: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
+            --font-heading: "Georgia", "Times New Roman", serif;
+            --font-mono: "SF Mono", "Monaco", "Cascadia Code", "Courier New", monospace;
+        }
+
+        @page {
+            size: A4;
+            margin: 2cm 1.2cm 2cm 1.2cm;
+
+            @top-left   { content: none; }
+            @top-center { content: element(header-center); }
+            @top-right  { content: none; }
+
+            @bottom-left {
+                {% if doc_ref %}
+                content: "Ref: {{ doc_ref }}";
+                {% else %}
+                content: "";
+                {% endif %}
+                font-size: 9pt;
+                color: var(--muted);
+                font-family: var(--font-primary);
+                font-weight: 500;
+            }
+            @bottom-right {
+                content: "Page " counter(page) " of " counter(pages);
+                font-size: 9pt;
+                color: var(--muted);
+                font-family: var(--font-primary);
+                font-weight: 500;
+            }
+        }
+
+        @page:first {
+            @top-left   { content: none; }
+            @top-center { content: element(header-left); }
+            @top-right  { content: none; }
+
+            /* Blue background for entire first page */
+            background: var(--ei-blue);
+            @bottom-left {
+                {% if doc_ref %}
+                content: "Ref: {{ doc_ref }}";
+                {% else %}
+                content: "";
+                {% endif %}
+                font-size: 9pt;
+                color: rgba(255, 255, 255, 0.7);
+                font-family: var(--font-primary);
+            }
+            @bottom-right {
+                content: "Page " counter(page) " of " counter(pages);
+                font-size: 9pt;
+                color: rgba(255, 255, 255, 0.7);
+                font-family: var(--font-primary);
+            }
+        }
+
+        #header-left {
+            position: running(header-left);
+            font-size: 10pt;
+            color: #ffffff;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            gap: 8pt;
+            text-align: center;
+        }
+        #header-left img.logo {
+            height: 38pt;
+            filter: drop-shadow(0 1pt 2pt rgba(0,0,0,0.3)) brightness(0) invert(1);
+        }
+
+        #header-center {
+            position: running(header-center);
+            font-weight: 600;
+            font-size: 11pt;
+            color: var(--ei-dark);
+            text-align: center;
+            border-bottom: 1.5pt solid var(--ei-blue);
+            padding-bottom: 4pt;
+        }
+
+        body {
+            font-family: var(--font-primary);
+            font-size: 10.5pt;
+            color: var(--text);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* ===== ENHANCED COVER PAGE ===== */
+        .cover-page {
+            text-align: center;
+            padding-top: 40pt;
+            page-break-after: always;
+            position: relative;
+        }
+
+        .title-banner {
+            background: transparent;
+            margin: 0;
+            padding: 20pt 0;
+            margin-bottom: 20pt;
+        }
+
+        .cover-page .doc-title {
+            font-family: var(--font-heading);
+            font-size: 20pt;
+            color: #ffffff;
+            font-weight: 700;
+            letter-spacing: -0.3pt;
+            margin: 0 0 12pt 0;
+            line-height: 1.3;
+        }
+
+        .cover-page .doc-subtitle {
+            font-size: 13pt;
+            color: #ffffff;
+            margin: 0 0 24pt 0;
+            font-weight: 400;
+            letter-spacing: 0.2pt;
+            opacity: 0.95;
+        }
+
+        .cover-page .meta {
+            margin-top: 30pt;
+            color: #ffffff;
+            font-size: 10pt;
+            line-height: 1.8;
+        }
+
+        .cover-page .meta > div {
+            margin: 6pt 0;
+        }
+
+        /* ===== ENHANCED TOC ===== */
+        .toc {
+            margin-top: 30pt;
+            text-align: left;
+            max-width: 480pt;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 20pt 30pt;
+            background: transparent !important;
+            border-left: 3pt solid #ffffff;
+        }
+
+        /* Template-driven TOC filtering:
+           - Hide all rows by default, then show per selection below.
+           - Default for this template: H2 + strong H3 only.
+        */
+        .toc tr.toc-row { display: none; }
+        {% if toc_include_h2 %}.toc tr.toc-level-2 { display: table-row; }{% endif %}
+        {% if toc_include_h3_strong %}.toc tr.toc-level-3.toc-strong { display: table-row; }{% endif %}
+        {% if toc_include_h3_non_strong %}.toc tr.toc-level-3.toc-not-strong { display: table-row; }{% endif %}
+
+        .toc h3 {
+            display: none;
+        }
+
+        .toc table {
+            border: none !important;
+            margin: 0;
+            font-size: 10pt;
+            background: transparent !important;
+        }
+
+        .toc tbody { background: transparent !important; }
+        .toc tr { background: transparent !important; }
+
+        .toc td {
+            border: none !important;
+            padding: 6pt 0;
+            border-bottom: 1pt dotted rgba(255, 255, 255, 0.3) !important;
+            background: transparent !important;
+            color: #ffffff !important;
+        }
+
+        .toc a {
+            color: #ffffff !important;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        /* ===== CONTENT AREA ===== */
+        .content {
+            margin-top: 0;
+        }
+
+        /* ===== ENHANCED HEADINGS ===== */
+        h2, h3, h4 {
+            font-family: var(--font-primary);
+            color: var(--ei-blue);
+            font-weight: 700;
+            page-break-after: avoid;
+            margin: 20pt 0 12pt;
+            letter-spacing: -0.2pt;
+        }
+
+        h2 {
+            font-size: 18pt;
+            color: var(--ei-blue);
+            padding-bottom: 8pt;
+            border-bottom: 2pt solid var(--ei-blue);
+            margin-top: 28pt;
+            font-family: var(--font-primary);
+        }
+
+        h3 {
+            font-size: 14pt;
+            color: var(--ei-blue-light);
+            margin-top: 20pt;
+            font-family: var(--font-primary);
+        }
+
+        h4 {
+            font-size: 12pt;
+            color: var(--text);
+            font-weight: 600;
+            margin-top: 16pt;
+            font-family: var(--font-primary);
+        }
+
+        /* Remove the ::before rule for section dividers (handled by border-bottom) */
+        h2:not(:first-of-type) {
+            margin-top: 32pt;
+        }
+
+        p {
+            margin: 12pt 0;
+            text-align: justify;
+            hyphens: auto;
+        }
+
+        a {
+            color: var(--ei-accent);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        /* ===== PROFESSIONAL TABLE STYLING ===== */
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin: 18pt 0;
+            table-layout: auto;
+            font-size: 7.5pt;
+            border: 1pt solid var(--border);
+            border-radius: 4pt;
+            overflow: hidden;
+        }
+
+        /* Header styling with gradient */
+        thead th, th {
+            background: linear-gradient(180deg, var(--ei-blue) 0%, var(--ei-blue-light) 100%);
+            color: #ffffff !important;
+            font-weight: 600;
+            font-size: 7pt;
+            padding: 6pt 5pt;
+            text-align: left;
+            white-space: normal;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            border-bottom: 2pt solid var(--ei-blue);
+            letter-spacing: 0.1pt;
+            text-transform: uppercase;
+            line-height: 1.3;
+        }
+
+        /* Body cells */
+        tbody td {
+            padding: 5pt 5pt;
+            border-bottom: 1pt solid var(--border);
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
+            vertical-align: top;
+            font-size: 7.5pt;
+            line-height: 1.4;
+        }
+
+        /* Remove border from last row */
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Enhanced zebra striping */
+        tbody tr:nth-child(odd) { background-color: #ffffff; }
+        tbody tr:nth-child(even) { background-color: var(--bg-subtle); }
+
+        /* Subtle hover effect simulation through better contrast */
+        tbody tr:first-child td { padding-top: 11pt; }
+
+        /* Column sizing classes */
+        col.narrow + * td,
+        td.narrow {
+            font-size: 7pt;
+            padding: 4pt 3pt;
+            hyphens: auto;
+            word-break: break-word;
+        }
+
+        col.wide + * td,
+        td.wide {
+            hyphens: none;
+            word-break: normal;
+            min-width: 80pt;
+        }
+
+        /* Numeric columns */
+        td.numeric, th.numeric {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            font-family: var(--font-mono);
+            font-size: 7pt;
+            white-space: nowrap;
+        }
+
+        /* Compact table variant - add .table-compact class to tables that need even more space */
+        table.table-compact { font-size: 6.5pt; }
+        table.table-compact th { font-size: 6pt; padding: 4pt 3pt; }
+        table.table-compact td { font-size: 6.5pt; padding: 3pt 3pt; }
+
+        /* Table page break handling */
+        table { page-break-inside: auto; }
+        thead { display: table-header-group; page-break-inside: avoid; }
+        tbody { page-break-inside: auto; }
+        tr { page-break-inside: avoid; }
+
+        /* ===== LISTS ===== */
+        ul, ol { margin: 12pt 0; padding-left: 24pt; }
+        li { margin: 6pt 0; line-height: 1.6; }
+
+        /* ===== BLOCKQUOTES ===== */
+        blockquote {
+            margin: 16pt 0;
+            padding: 12pt 16pt;
+            border-left: 4pt solid var(--ei-blue);
+            background: var(--bg-accent);
+            font-style: italic;
+            color: var(--text-light);
+        }
+
+        /* ===== CODE BLOCKS ===== */
+        code {
+            font-family: var(--font-mono);
+            font-size: 9pt;
+            background: var(--bg-subtle);
+            padding: 2pt 4pt;
+            border-radius: 2pt;
+            color: var(--ei-dark);
+        }
+
+        pre {
+            background: var(--bg-subtle);
+            padding: 12pt;
+            border-radius: 4pt;
+            border-left: 3pt solid var(--ei-blue);
+            overflow-x: auto;
+            margin: 16pt 0;
+        }
+
+        pre code { background: none; padding: 0; }
+
+        /* ===== PAGE BREAKS ===== */
+        .page-break { page-break-after: always; }
+
+        /* ===== ENHANCED CONFIDENTIAL WATERMARK ===== */
+        {% if confidential %}
+        @page {
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><text x="50%%" y="50%%" font-size="48" font-weight="700" fill="rgba(220,38,38,0.08)" text-anchor="middle" transform="rotate(-45 200 100)" font-family="Arial">CONFIDENTIAL</text></svg>') center center no-repeat;
+        }
+        {% endif %}
+
+        /* ===== STATUS BADGES ===== */
+        .status-badge {
+            display: inline-block;
+            padding: 4pt 10pt;
+            border-radius: 12pt;
+            font-size: 9pt;
+            font-weight: 600;
+            letter-spacing: 0.5pt;
+            text-transform: uppercase;
+        }
+        .status-draft { background: #fef3c7; color: #92400e; }
+        .status-final { background: #d1fae5; color: #065f46; }
+        .status-confidential { background: #fee2e2; color: #991b1b; }
+
+        /* ===== UTILITY CLASSES ===== */
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-muted { color: var(--muted); }
+        .font-bold { font-weight: 700; }
+        .mt-large { margin-top: 24pt; }
+        .mb-large { margin-bottom: 24pt; }
+
+        /* ===== HIDE DUPLICATE HEADINGS ===== */
+        /* Hide h3 headings that don't contain strong tags and are followed by h3 with strong */
+        h3:not(:has(strong)) + h3:has(strong) {
+            margin-top: 12pt; /* Reset margin since previous h3 will be hidden */
+        }
+
+        h3:not(:has(strong)):has(+ h3:has(strong)) {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="header-left">
+        {% if logo_data_uri %}
+          <img class="logo" src="{{ logo_data_uri }}" alt="Logo" />
+        {% endif %}
+    </div>
+    <div id="header-center">{{ 'Target Licensee Report' }}</div>
+
+    {% if include_cover %}
+    <div class="cover-page">
+        <div class="title-banner">
+            <div class="doc-title">{{ 'Target Licensee Report' }}</div>
+
+            {% if subtitle %}<div class="doc-subtitle">{{ subtitle }}</div>{% endif %}
+            <div class="meta">
+                <div style="color: red;">This report has been generated using Elman.AI</div>
+                <div>Generated: {{ date }}</div>
+                {% if doc_ref %}<div>Reference: {{ doc_ref }}</div>{% endif %}
+
+                {% if confidential %}
+                <div style="margin-top: 12pt;">
+                    <span class="status-badge status-confidential">CONFIDENTIAL</span>
+                </div>
+                {% endif %}
+            </div>
+
+        </div>
+        {% if toc_html %}
+        <div class="toc">
+            {{ toc_html|safe }}
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="content">
+        {{ content|safe }}
+    </div>
+</body>
+</html>
